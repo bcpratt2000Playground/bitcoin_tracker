@@ -18,48 +18,56 @@ fn main() {
         block_on(connector.get_latest_quotes(x, ""))
             .unwrap()
             .last_quote()
-            .unwrap()
     };
 
-    let mut last_quote = get_quote(TICKER);
+    let mut last_quote = get_quote(TICKER).unwrap();
     let mut current_quote;
     let mut rolling_average = last_quote.close;
     let mut time = NaiveDateTime::from_timestamp(last_quote.timestamp as i64, 0).time();
 
     print!("\x1B[2J\x1B[1;1H"); //clear console and set cursor to top
-    println!("Data provided by Yahoo Financial. Time is local to the market that the ticker originates.");
+    println!(
+        "Data provided by Yahoo Financial. Time is local to the market that the ticker originates."
+    );
     println!(
         "Bitcoin Price: ${} at {}:{}",
         last_quote.close,
-        time.hour(), time.minute() 
+        time.hour(),
+        time.minute()
     );
 
     loop {
-        current_quote = get_quote(TICKER);
+        current_quote = get_quote(TICKER).unwrap_or({
+            thread::sleep(Duration::from_secs_f32(30.0));
+            get_quote(TICKER).unwrap()
+        }); // if it doesn't have a connection, try again in 60 seconds then panic if there is still no connection
         if current_quote.timestamp > last_quote.timestamp {
             time = NaiveDateTime::from_timestamp(current_quote.timestamp as i64, 0).time();
             if current_quote.close > rolling_average {
                 green_ln!(
                     "Bitcoin Price: ${} at {}:{}",
                     current_quote.close,
-                    time.hour(), time.minute() 
+                    time.hour(),
+                    time.minute()
                 );
             } else if current_quote.close < rolling_average {
                 red_ln!(
                     "Bitcoin Price: ${} at {}:{}",
                     current_quote.close,
-                    time.hour(), time.minute() 
+                    time.hour(),
+                    time.minute()
                 );
             } else {
                 println!(
                     "Bitcoin Price: ${} at {}:{}",
                     current_quote.close,
-                    time.hour(), time.minute() 
+                    time.hour(),
+                    time.minute()
                 );
             }
             rolling_average = rolling_average * 0.9 + (current_quote.close * 0.1);
         }
         last_quote = current_quote;
-        thread::sleep(Duration::from_secs_f32(60.0));
+        thread::sleep(Duration::from_secs_f32(30.0));
     }
 }
